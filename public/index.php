@@ -64,7 +64,7 @@ if (!$fileExists || $timeDiff > CACHE_SECONDS) {
 }
 
 header("Cache-Control: max-age={$timeDiff}");
-header("Content-Disposition: attachment; filename=\"ifsc-calendar.{$format}}\"");
+header("Content-Disposition: attachment; filename=\"ifsc-calendar.{$format}\"");
 header('Content-Type: text/calendar; charset=utf-8');
 header('Content-Length: ' . filesize(CALENDAR_FILE));
 
