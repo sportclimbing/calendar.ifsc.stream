@@ -3,17 +3,32 @@
 error_reporting(-1);
 ini_set('display_errors', 0);
 
+require __DIR__ . '/functions.php';
+
 define('LATEST_RELEASE_URL',  'https://api.github.com/repos/sportclimbing/ifsc-calendar/releases/latest');
-define('CALENDAR_FILE', 'calendar.ics');
 define('CACHE_SECONDS', 60 * 1);
 
-$fileExists = is_file(CALENDAR_FILE);
+define('CALENDAR_FILE_ICS', 'cache/calendar.ics');
+define('CALENDAR_FILE_JSON', 'cache/calendar.json');
 
-function error_500()
-{
-    header(' ', true, 500);
-    exit;
+$format = isset($_GET['format']) ? (string) $_GET['format'] : '';
+
+$formats = [
+    'ics' => 0,
+    'json' => 1,
+];
+
+if (!isset($formats[$format])) {
+    $format = 'ics';
 }
+
+if ($format === 'ics') {
+    define('CALENDAR_FILE', CALENDAR_FILE_ICS);
+} else {
+    define('CALENDAR_FILE', CALENDAR_FILE_JSON);
+}
+
+$fileExists = is_file(CALENDAR_FILE);
 
 if ($fileExists) {
     $timeDiff = time() - filemtime(CALENDAR_FILE);
@@ -22,17 +37,7 @@ if ($fileExists) {
 }
 
 if (!$fileExists || $timeDiff > CACHE_SECONDS) {
-    $opts = stream_context_create([
-        'http' => [
-            'method' => "GET",
-            'header' =>
-                "Accept-language: en\r\n" .
-                "Accept: */*\r\n" .
-                "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/111.0\r\n"
-        ]
-    ]);
-
-    $contents = @file_get_contents(LATEST_RELEASE_URL, false, $opts);
+    $contents = http_get(LATEST_RELEASE_URL);
 
     if (!$contents) {
         error_500();
@@ -40,12 +45,11 @@ if (!$fileExists || $timeDiff > CACHE_SECONDS) {
 
     $json = @json_decode($contents);
 
-    if (json_last_error() || !isset($json->assets[0]->browser_download_url)) {
+    if (json_last_error() || !isset($json->assets[$formats[$format]]->browser_download_url)) {
         error_500();
     }
 
-    $timeDiff = 600;
-    $contents = @file_get_contents($json->assets[0]->browser_download_url);
+    $contents = http_get($json->assets[$formats[$format]]->browser_download_url);
 
     if (!$contents) {
         error_500();
@@ -53,12 +57,14 @@ if (!$fileExists || $timeDiff > CACHE_SECONDS) {
 
     file_put_contents(CALENDAR_FILE, $contents, LOCK_EX);
     touch(CALENDAR_FILE);
+
+    $timeDiff = 600;
 } else {
     $timeDiff = CACHE_SECONDS - $timeDiff;
 }
 
 header("Cache-Control: max-age={$timeDiff}");
-header('Content-Disposition: attachment; filename="ifsc-calendar.ics"');
+header("Content-Disposition: attachment; filename=\"ifsc-calendar.{$format}}\"");
 header('Content-Type: text/calendar; charset=utf-8');
 header('Content-Length: ' . filesize(CALENDAR_FILE));
 
