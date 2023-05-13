@@ -12,6 +12,7 @@ define('CALENDAR_FILE_ICS', 'cache/calendar.ics');
 define('CALENDAR_FILE_JSON', 'cache/calendar.json');
 
 $format = isset($_GET['format']) ? (string) $_GET['format'] : '';
+$noCache = isset($_GET['nocache']);
 
 $formats = [
     'ics' => 0,
@@ -36,7 +37,7 @@ if ($fileExists) {
     $timeDiff = CACHE_SECONDS;
 }
 
-if (!$fileExists || $timeDiff > CACHE_SECONDS) {
+if ($noCache || !$fileExists || $timeDiff > CACHE_SECONDS) {
     $contents = http_get(LATEST_RELEASE_URL);
 
     if (!$contents) {
