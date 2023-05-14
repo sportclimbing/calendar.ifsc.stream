@@ -23,11 +23,10 @@ if (!isset($formats[$format])) {
     $format = 'ics';
 }
 
-if ($format === 'ics') {
-    define('CALENDAR_FILE', CALENDAR_FILE_ICS);
-} else {
-    define('CALENDAR_FILE', CALENDAR_FILE_JSON);
-}
+define('CALENDAR_FILE', $format === 'ics'
+    ? CALENDAR_FILE_ICS
+    : CALENDAR_FILE_JSON
+);
 
 $fileExists = is_file(CALENDAR_FILE);
 
@@ -41,19 +40,19 @@ if ($noCache || !$fileExists || $timeDiff > CACHE_SECONDS) {
     $contents = http_get(LATEST_RELEASE_URL);
 
     if (!$contents) {
-        error_500();
+        error_503();
     }
 
     $json = @json_decode($contents);
 
     if (json_last_error() || !isset($json->assets[$formats[$format]]->browser_download_url)) {
-        error_500();
+        error_503();
     }
 
     $contents = http_get($json->assets[$formats[$format]]->browser_download_url);
 
     if (!$contents) {
-        error_500();
+        error_503();
     }
 
     file_put_contents(CALENDAR_FILE, $contents, LOCK_EX);

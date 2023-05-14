@@ -1,14 +1,15 @@
 <?php
 
-function error_500()
+function error_503()
 {
-    header(' ', true, 500);
+    header(' ', true, 503);
+    echo "Service temporarily unavailable", PHP_EOL;
     exit;
 }
 
 function http_get($url)
 {
-    $opts = stream_context_create([
+    return @file_get_contents($url, false, stream_context_create([
         'http' => [
             'method' => "GET",
             'header' =>
@@ -16,7 +17,5 @@ function http_get($url)
                 "Accept: */*\r\n" .
                 "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/111.0\r\n"
         ]
-    ]);
-
-    return @file_get_contents($url, false, $opts);
+    ]));
 }
