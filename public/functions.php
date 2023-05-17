@@ -19,3 +19,10 @@ function http_get($url)
         ]
     ]));
 }
+
+function download_url($json, $format)
+{
+    return isset($json->assets[$format]->browser_download_url)
+        ? $json->assets[$format]->browser_download_url
+        : null;
+}

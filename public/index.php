@@ -6,7 +6,7 @@ ini_set('display_errors', 0);
 require __DIR__ . '/functions.php';
 
 define('LATEST_RELEASE_URL',  'https://api.github.com/repos/sportclimbing/ifsc-calendar/releases/latest');
-define('CACHE_SECONDS', 60 * 1);
+define('CACHE_SECONDS', 60);
 
 define('CALENDAR_FILE_ICS', 'cache/calendar.ics');
 define('CALENDAR_FILE_JSON', 'cache/calendar.json');
@@ -23,15 +23,18 @@ if (!isset($formats[$format])) {
     $format = 'ics';
 }
 
-define('CALENDAR_FILE', $format === 'ics'
-    ? CALENDAR_FILE_ICS
-    : CALENDAR_FILE_JSON
-);
+if ($format === 'ics') {
+    $calendarFile = CALENDAR_FILE_ICS;
+    $contentType = 'text/calendar';
+} else {
+    $calendarFile = CALENDAR_FILE_JSON;
+    $contentType = 'application/json';
+}
 
-$fileExists = is_file(CALENDAR_FILE);
+$fileExists = is_file($calendarFile);
 
 if ($fileExists) {
-    $timeDiff = time() - filemtime(CALENDAR_FILE);
+    $timeDiff = time() - filemtime($calendarFile);
 } else {
     $timeDiff = CACHE_SECONDS;
 }
@@ -44,19 +47,20 @@ if ($noCache || !$fileExists || $timeDiff > CACHE_SECONDS) {
     }
 
     $json = @json_decode($contents);
+    $downloadUrl = download_url($json, $formats[$format]);
 
-    if (json_last_error() || !isset($json->assets[$formats[$format]]->browser_download_url)) {
+    if (json_last_error() || !isset($downloadUrl)) {
         error_503();
     }
 
-    $contents = http_get($json->assets[$formats[$format]]->browser_download_url);
+    $contents = http_get($downloadUrl);
 
     if (!$contents) {
         error_503();
     }
 
-    file_put_contents(CALENDAR_FILE, $contents, LOCK_EX);
-    touch(CALENDAR_FILE);
+    file_put_contents($calendarFile, $contents, LOCK_EX);
+    touch($calendarFile);
 
     $timeDiff = 600;
 } else {
@@ -65,7 +69,7 @@ if ($noCache || !$fileExists || $timeDiff > CACHE_SECONDS) {
 
 header("Cache-Control: max-age={$timeDiff}");
 header("Content-Disposition: attachment; filename=\"ifsc-calendar.{$format}\"");
-header('Content-Type: text/calendar; charset=utf-8');
-header('Content-Length: ' . filesize(CALENDAR_FILE));
+header("Content-Type: {$contentType}; charset=utf-8");
+header('Content-Length: ' . filesize($calendarFile));
 
-readfile(CALENDAR_FILE);
+readfile($calendarFile);
