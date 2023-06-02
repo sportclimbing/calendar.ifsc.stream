@@ -63,13 +63,15 @@ if ($noCache || !$fileExists || $timeDiff > CACHE_SECONDS) {
     touch($calendarFile);
 
     $timeDiff = 600;
+    $contentLength = strlen($contents);
 } else {
     $timeDiff = CACHE_SECONDS - $timeDiff;
+    $contentLength = filesize($calendarFile);
 }
 
 header("Cache-Control: max-age={$timeDiff}");
 header("Content-Disposition: attachment; filename=\"ifsc-calendar.{$format}\"");
 header("Content-Type: {$contentType}; charset=utf-8");
-header('Content-Length: ' . filesize($calendarFile));
+header('Content-Length: ' . $contentLength);
 
 readfile($calendarFile);
