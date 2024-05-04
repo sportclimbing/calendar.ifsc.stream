@@ -5,7 +5,6 @@ ini_set('display_errors', 0);
 
 require __DIR__ . '/functions.php';
 
-define('LATEST_RELEASE_URL',  'https://api.github.com/repos/sportclimbing/ifsc-calendar/releases/latest');
 define('CACHE_SECONDS', 60);
 
 define('CALENDAR_FILE_ICS', 'cache/calendar.ics');
@@ -15,8 +14,8 @@ $format = isset($_GET['format']) ? (string) $_GET['format'] : '';
 $noCache = isset($_GET['nocache']);
 
 $formats = [
-    'ics' => 0,
-    'json' => 1,
+    'ics' => 'https://github.com/sportclimbing/ifsc-calendar/releases/latest/download/IFSC-World-Cups-and-World-Championships.ics',
+    'json' => 'https://github.com/sportclimbing/ifsc-calendar/releases/latest/download/IFSC-World-Cups-and-World-Championships.json',
 ];
 
 if (!isset($formats[$format])) {
@@ -40,38 +39,23 @@ if ($fileExists) {
 }
 
 if ($noCache || !$fileExists || $timeDiff > CACHE_SECONDS) {
-    $contents = http_get(LATEST_RELEASE_URL);
+    $contents = http_get($formats[$format]);
 
-    if (!$contents) {
+    if (!$contents || @file_put_contents($calendarFile, $contents, LOCK_EX) === false) {
         error_503();
     }
 
-    $json = @json_decode($contents);
-    $downloadUrl = download_url($json, $formats[$format]);
-
-    if (json_last_error() || !isset($downloadUrl)) {
-        error_503();
-    }
-
-    $contents = http_get($downloadUrl);
-
-    if (!$contents) {
-        error_503();
-    }
-
-    file_put_contents($calendarFile, $contents, LOCK_EX);
     touch($calendarFile);
-
-    $timeDiff = 600;
     $contentLength = strlen($contents);
 } else {
-    $timeDiff = CACHE_SECONDS - $timeDiff;
     $contentLength = filesize($calendarFile);
 }
 
-header("Cache-Control: max-age={$timeDiff}");
+$maxAge = abs(CACHE_SECONDS - $timeDiff);
+
+header("Cache-Control: max-age={$maxAge}");
 header("Content-Disposition: attachment; filename=\"ifsc-calendar.{$format}\"");
 header("Content-Type: {$contentType}; charset=utf-8");
-header('Content-Length: ' . $contentLength);
+header("Content-Length: {$contentLength}");
 
 readfile($calendarFile);
