@@ -13,9 +13,11 @@ define('CALENDAR_FILE_JSON', 'cache/calendar.json');
 $format = isset($_GET['format']) ? (string) $_GET['format'] : '';
 $noCache = isset($_GET['nocache']);
 
+$baseURL = 'https://github.com/sportclimbing/ifsc-calendar/releases/latest/download';
+
 $formats = [
-    'ics' => 'https://github.com/sportclimbing/ifsc-calendar/releases/latest/download/IFSC-World-Cups-and-World-Championships.ics',
-    'json' => 'https://github.com/sportclimbing/ifsc-calendar/releases/latest/download/IFSC-World-Cups-and-World-Championships.json',
+    'ics' => "$baseURL/IFSC-World-Cups-and-World-Championships.ics",
+    'json' => "$baseURL/IFSC-World-Cups-and-World-Championships.json",
 ];
 
 if (!isset($formats[$format])) {
@@ -59,3 +61,9 @@ header("Content-Type: {$contentType}; charset=utf-8");
 header("Content-Length: {$contentLength}");
 
 readfile($calendarFile);
+
+if (function_exists('fastcgi_finish_request')) {
+    fastcgi_finish_request();
+}
+
+track_calendar_download($format);

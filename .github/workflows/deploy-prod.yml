@@ -1,4 +1,4 @@
-name: Deploy to Prod
+name: "Deploy to Prod"
 
 on:
   workflow_dispatch:
@@ -8,15 +8,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@master
+        uses: actions/checkout@v6
 
       - name: "Deploy to Prod"
-        uses: easingthemes/ssh-deploy@main
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          ARGS: "-rlgoDzvc -i --delete"
-          SOURCE: "public/"
+        uses: easingthemes/ssh-deploy@v6
+        with:
           REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
           REMOTE_USER: ${{ secrets.REMOTE_USER }}
+          SSH_PRIVATE_KEY: '${{ secrets.SSH_PRIVATE_KEY }}'
           TARGET: ${{ secrets.REMOTE_TARGET }}
+          SOURCE: 'public/'
+          ARGS: '-rlgoDzvc -i --delete'
           SSH_CMD_ARGS: -o StrictHostKeyChecking=no, -o 'PubkeyAcceptedKeyTypes +ssh-rsa'
