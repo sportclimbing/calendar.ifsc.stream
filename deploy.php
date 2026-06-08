@@ -44,17 +44,17 @@ task('deploy:vendors', function () {
 
 task('deploy', [
     'deploy:info',
-    'deploy:setup',
+    'deploy:prepare',
     'deploy:lock',
     'deploy:release',
     'deploy:update_code',
     'deploy:shared',
     'deploy:vendors',
     'deploy:writable',
-    'deploy:clear_paths',
     'deploy:symlink',
     'deploy:unlock',
     'cleanup',
+    'success',
 ]);
 
 after('deploy:failed', 'deploy:unlock');
