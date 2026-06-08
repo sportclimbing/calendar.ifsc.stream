@@ -2,6 +2,7 @@
     "name": "sportclimbing/calendar-backend",
     "type": "project",
     "prefer-stable": true,
+    "minimum-stability": "dev",
     "require": {
         "php": ">=8.5",
         "slim/slim": "^4.0",
