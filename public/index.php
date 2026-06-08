@@ -1,69 +1,99 @@
 <?php
 
+declare(strict_types=1);
+
 error_reporting(-1);
 ini_set('display_errors', 0);
 
-require __DIR__ . '/functions.php';
+require __DIR__ . '/../vendor/autoload.php';
 
-define('CACHE_SECONDS', 60);
+use DI\ContainerBuilder;
+use Psr\Container\ContainerInterface;
+use Slim\Factory\AppFactory;
+use SportClimbing\IcsGenerator\CalendarFactory;
+use SportClimbing\IcsGenerator\IcsGenerator;
+use SportClimbing\Adapter\CachingCalendarRepository;
+use SportClimbing\Adapter\FileGetContentsHttpClient;
+use SportClimbing\Adapter\GitHubCalendarRepository;
+use SportClimbing\Adapter\GoogleAnalyticsAdapter;
+use SportClimbing\Adapter\SportClimbingIcsGenerator;
+use SportClimbing\Application\ServeCalendarUseCase;
+use SportClimbing\Application\TrackDownloadUseCase;
+use SportClimbing\Infrastructure\CalendarController;
+use SportClimbing\Port\AnalyticsClient;
+use SportClimbing\Port\CalendarGenerator;
+use SportClimbing\Port\CalendarRepository;
+use SportClimbing\Port\HttpClient;
 
-define('CALENDAR_FILE_ICS', 'cache/calendar.ics');
-define('CALENDAR_FILE_JSON', 'cache/calendar.json');
+$settings = require __DIR__ . '/../config/settings.php';
 
-$format = isset($_GET['format']) ? (string) $_GET['format'] : '';
-$noCache = isset($_GET['nocache']);
+$containerBuilder = new ContainerBuilder();
 
-$baseURL = 'https://github.com/sportclimbing/ifsc-calendar/releases/latest/download';
+$containerBuilder->addDefinitions([
+    'cache.dir' => $settings['cache']['dir'],
+    'cache.seconds' => $settings['cache']['seconds'],
+    'calendar.ics_url' => $settings['calendar']['base_url'] . '/' . $settings['calendar']['ics_filename'],
+    'calendar.json_url' => $settings['calendar']['base_url'] . '/' . $settings['calendar']['json_filename'],
 
-$formats = [
-    'ics' => "$baseURL/IFSC-World-Cups-and-World-Championships.ics",
-    'json' => "$baseURL/IFSC-World-Cups-and-World-Championships.json",
-];
+    // Ports → Adapters
+    HttpClient::class => fn () => new FileGetContentsHttpClient(),
 
-if (!isset($formats[$format])) {
-    $format = 'ics';
-}
+    CalendarRepository::class => function (ContainerInterface $c) {
+        $http = $c->get(HttpClient::class);
 
-if ($format === 'ics') {
-    $calendarFile = CALENDAR_FILE_ICS;
-    $contentType = 'text/calendar';
-} else {
-    $calendarFile = CALENDAR_FILE_JSON;
-    $contentType = 'application/json';
-}
+        return new CachingCalendarRepository(
+            new GitHubCalendarRepository(
+                $http,
+                $c->get('calendar.ics_url'),
+                $c->get('calendar.json_url'),
+            ),
+            $c->get('cache.dir'),
+            $c->get('cache.seconds'),
+        );
+    },
 
-$fileExists = is_file($calendarFile);
+    AnalyticsClient::class => fn () => new GoogleAnalyticsAdapter(
+        $settings['analytics']['measurement_id'],
+        $settings['analytics']['api_secret'],
+    ),
 
-if ($fileExists) {
-    $timeDiff = time() - filemtime($calendarFile);
-} else {
-    $timeDiff = CACHE_SECONDS;
-}
+    // Domain service from ifsc-ics-generator
+    CalendarGenerator::class => fn () => new SportClimbingIcsGenerator(
+        new IcsGenerator(
+            new CalendarFactory(),
+            $settings['calendar']['prod_id'],
+            $settings['calendar']['duration'],
+            $settings['calendar']['cal_name'],
+        ),
+    ),
 
-if ($noCache || !$fileExists || $timeDiff > CACHE_SECONDS) {
-    $contents = http_get($formats[$format]);
+    // Use cases
+    ServeCalendarUseCase::class => function (ContainerInterface $c) {
+        return new ServeCalendarUseCase(
+            $c->get(CalendarRepository::class),
+            $c->get(CalendarGenerator::class),
+        );
+    },
 
-    if (!$contents || @file_put_contents($calendarFile, $contents, LOCK_EX) === false) {
-        error_503();
-    }
+    TrackDownloadUseCase::class => function (ContainerInterface $c) {
+        return new TrackDownloadUseCase(
+            $c->get(AnalyticsClient::class),
+        );
+    },
 
-    touch($calendarFile);
-    $contentLength = strlen($contents);
-} else {
-    $contentLength = filesize($calendarFile);
-}
+    // Controller
+    CalendarController::class => function (ContainerInterface $c) {
+        return new CalendarController(
+            $c->get(ServeCalendarUseCase::class),
+            $c->get(TrackDownloadUseCase::class),
+        );
+    },
+]);
 
-$maxAge = abs(CACHE_SECONDS - $timeDiff);
+$container = $containerBuilder->build();
 
-header("Cache-Control: max-age={$maxAge}");
-header("Content-Disposition: attachment; filename=\"ifsc-calendar.{$format}\"");
-header("Content-Type: {$contentType}; charset=utf-8");
-header("Content-Length: {$contentLength}");
+AppFactory::setContainer($container);
+$app = AppFactory::create();
 
-readfile($calendarFile);
-
-if (function_exists('fastcgi_finish_request')) {
-    fastcgi_finish_request();
-}
-
-track_calendar_download($format);
+$app->get('/', CalendarController::class);
+$app->run();

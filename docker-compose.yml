@@ -1,0 +1,15 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: calendar.ifsc.stream/Dockerfile
+    ports:
+      - "8080:80"
+    environment:
+      - GA_MEASUREMENT_ID=${GA_MEASUREMENT_ID:-}
+      - GA_API_SECRET=${GA_API_SECRET:-}
+    volumes:
+      - cache_data:/app/var/cache
+
+volumes:
+  cache_data:

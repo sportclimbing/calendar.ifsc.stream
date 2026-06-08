@@ -1,4 +1,5 @@
 /.idea/
 .DS_Store
-/public/cache/*.ics
-/public/cache/*.json
+/var/cache/
+/vendor/
+/.phpunit.cache/

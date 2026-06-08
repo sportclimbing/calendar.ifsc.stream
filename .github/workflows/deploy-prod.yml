@@ -1,22 +1,43 @@
 name: "Deploy to Prod"
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
-  deploy-prod:
+  test-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: "Checkout code"
+      - name: "Checkout app"
         uses: actions/checkout@v6
 
-      - name: "Deploy to Prod"
-        uses: easingthemes/ssh-deploy@v6
+      - name: "Setup PHP"
+        uses: shivammathur/setup-php@v2
         with:
-          REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
-          REMOTE_USER: ${{ secrets.REMOTE_USER }}
-          SSH_PRIVATE_KEY: '${{ secrets.SSH_PRIVATE_KEY }}'
-          TARGET: ${{ secrets.REMOTE_TARGET }}
-          SOURCE: 'public/'
-          ARGS: '-rlgoDzvc -i --delete'
-          SSH_CMD_ARGS: -o StrictHostKeyChecking=no, -o 'PubkeyAcceptedKeyTypes +ssh-rsa'
+          php-version: 8.5
+
+      - name: "Install dependencies"
+        run: |
+          composer install --no-dev --optimize-autoloader --no-interaction
+          composer update sportclimbing/ifsc-ics-generator
+
+      - name: "Run tests"
+        run: vendor/bin/phpunit --no-output
+
+      - name: "Install Deployer"
+        run: |
+          curl -sLO https://deployer.org/deployer.phar
+          chmod +x deployer.phar
+          sudo mv deployer.phar /usr/local/bin/dep
+
+      - name: "Setup SSH"
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H 95.85.49.210 >> ~/.ssh/known_hosts
+
+      - name: "Deploy"
+        run: |
+          DEPLOY_USER="${{ secrets.REMOTE_USER }}" dep deploy production
