@@ -1,0 +1,26 @@
+name: "Test PR"
+
+on:
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v6
+
+      - name: "Setup PHP"
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.5
+
+      - name: "Install dependencies"
+        run: composer install --no-interaction
+
+      - name: "Run PHPStan"
+        run: vendor/bin/phpstan analyse src tests
+
+      - name: "Run tests"
+        run: vendor/bin/phpunit
