@@ -8,7 +8,7 @@ Backend API for **calendar.ifsc.stream** — serves the [IFSC](https://www.ifsc-
 
 - **Full ICS feed** — returns the complete IFSC competition calendar on `GET /`
 - **Filtered feeds** — filter by discipline, kind, and category via query parameters; generates a fresh ICS on the fly
-- **Caching** — filesystem cache (60s TTL) for both ICS and JSON sources to reduce upstream load
+- **Background data refresh** — cron-style loop fetches upstream JSON periodically; requests never wait on upstream HTTP
 
 ## API
 
@@ -67,10 +67,22 @@ Request → CalendarController → ServeCalendarUseCase → Ports (interfaces)
 - **Ports** (`src/Port/`) — interfaces: `CalendarRepository`, `CalendarGenerator`, `AnalyticsClient`, `HttpClient`
 - **Application** (`src/Application/`) — use cases: `ServeCalendarUseCase`, `TrackDownloadUseCase`
 - **Adapters** (`src/Adapter/`) — concrete implementations:
-  - `GitHubCalendarRepository` — fetches ICS/JSON from GitHub releases
-  - `CachingCalendarRepository` — filesystem cache decorator
+  - `LocalCalendarRepository` — reads pre-fetched JSON from local disk
+  - `GitHubCalendarRepository` — fetches JSON from GitHub releases (used by CLI fetch script)
   - `GoogleAnalyticsAdapter` — GA4 Measurement Protocol
   - `SportClimbingIcsGenerator` — wraps `ifsc-ics-generator` library
+
+## Data Flow
+
+Upstream calendar JSON is fetched periodically in the background (every `FETCH_INTERVAL` seconds, default 300) by `bin/fetch-calendar-data`, managed by supervisor. HTTP requests only read from the local cache file — they never wait on an upstream fetch.
+
+```
+cron loop (supervisor)  →  bin/fetch-calendar-data  →  GitHub Releases
+                                                           ↓
+                                                    /app/var/cache/calendar.json
+                                                           ↓
+                        HTTP request  →  LocalCalendarRepository  →  filter + generate ICS
+```
 
 ## Configuration
 
@@ -80,13 +92,13 @@ Environment variables:
 | --------------------- | ------- | ---------------------------------------- |
 | `GA_MEASUREMENT_ID`   | `''`    | Google Analytics 4 measurement ID        |
 | `GA_API_SECRET`       | `''`    | GA4 Measurement Protocol API secret      |
+| `FETCH_INTERVAL`      | `300`   | Seconds between upstream data fetches    |
 
 Application settings in `config/settings.php`:
 
 | Key                  | Default                     | Description              |
 | -------------------- | --------------------------- | ------------------------ |
-| `cache.seconds`      | `60`                        | Cache TTL in seconds     |
-| `calendar.base_url`  | GitHub releases latest URL  | Upstream ICS/JSON source |
+| `calendar.base_url`  | GitHub releases latest URL  | Upstream JSON source     |
 
 ## Development
 
@@ -128,7 +140,7 @@ Push to `main` triggers the [deploy-prod](.github/workflows/deploy-prod.yml) wor
 1. Checkout + PHP 8.5 setup
 2. Composer install (no-dev)
 3. Run tests
-4. Build artifact (public/, src/, config/, vendor/, var/)
+4. Build artifact (bin/, public/, src/, config/, vendor/, var/)
 5. Upload to production server via Deployer + SSH
 
 Requires GitHub Secrets: `SSH_PRIVATE_KEY`, `REMOTE_USER`.

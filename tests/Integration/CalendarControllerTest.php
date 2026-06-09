@@ -11,6 +11,8 @@ use DI\ContainerBuilder;
 use PHPUnit\Framework\TestCase;
 use Slim\App;
 use Slim\Factory\AppFactory;
+use Slim\Psr7\Factory\ServerRequestFactory;
+use Slim\Psr7\Response;
 use SportClimbing\Application\InputValidator;
 use SportClimbing\Application\ServeCalendarUseCase;
 use SportClimbing\Application\TrackDownloadUseCase;
@@ -18,6 +20,7 @@ use SportClimbing\Infrastructure\CalendarController;
 use SportClimbing\Port\AnalyticsClient;
 use SportClimbing\Port\CalendarGenerator;
 use SportClimbing\Port\CalendarRepository;
+use SportClimbing\Port\CalendarUnavailableException;
 
 class CalendarControllerTest extends TestCase
 {
@@ -61,18 +64,11 @@ class CalendarControllerTest extends TestCase
         $this->app->get('/', CalendarController::class);
     }
 
-    public function testIcsRequestReturns200(): void
-    {
-        // We need to access the container through the app.
-        // Actually, let's just test the controller directly instead of through Slim router.
-        $this->assertTrue(true); // Placeholder — Slim integration testing needs app->handle()
-    }
-
     public function testControllerReturns503OnFailure(): void
     {
         $repository = $this->createMock(CalendarRepository::class);
-        $repository->method('getIcs')
-            ->willThrowException(new \SportClimbing\Port\CalendarUnavailableException('Down'));
+        $repository->method('getEvents')
+            ->willThrowException(new CalendarUnavailableException('Down'));
 
         $generator = $this->createMock(CalendarGenerator::class);
         $analytics = $this->createMock(AnalyticsClient::class);
@@ -82,8 +78,8 @@ class CalendarControllerTest extends TestCase
             new TrackDownloadUseCase($analytics),
         );
 
-        $request = \Slim\Psr7\Factory\ServerRequestFactory::createFromGlobals();
-        $response = new \Slim\Psr7\Response();
+        $request = ServerRequestFactory::createFromGlobals();
+        $response = new Response();
 
         $response = $controller($request, $response);
 
@@ -93,10 +89,13 @@ class CalendarControllerTest extends TestCase
     public function testControllerReturns200ForIcs(): void
     {
         $repository = $this->createMock(CalendarRepository::class);
-        $repository->method('getIcs')
-            ->willReturn("BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n");
+        $repository->method('getEvents')
+            ->willReturn(['events' => []]);
 
         $generator = $this->createMock(CalendarGenerator::class);
+        $generator->method('generateForEvents')
+            ->willReturn("BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n");
+
         $analytics = $this->createMock(AnalyticsClient::class);
         $analytics->method('trackDownload'); // noop
 
@@ -105,8 +104,8 @@ class CalendarControllerTest extends TestCase
             new TrackDownloadUseCase($analytics),
         );
 
-        $request = \Slim\Psr7\Factory\ServerRequestFactory::createFromGlobals();
-        $response = new \Slim\Psr7\Response();
+        $request = ServerRequestFactory::createFromGlobals();
+        $response = new Response();
 
         $response = $controller($request, $response);
 

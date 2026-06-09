@@ -10,11 +10,6 @@ namespace SportClimbing\Port;
 interface CalendarRepository
 {
     /**
-     * @throws CalendarUnavailableException
-     */
-    public function getIcs(): string;
-
-    /**
      * Returns the full decoded JSON structure (including 'events' key).
      *
      * @return array{events: array}

@@ -20,7 +20,7 @@ class ServeCalendarUseCaseTest extends TestCase
     private CalendarGenerator $generator;
     private InputValidator $validator;
 
-    private const ALLOWED_VALUES = [
+    private const array ALLOWED_VALUES = [
         'discipline' => ['boulder', 'lead', 'speed'],
         'kind' => ['qualification', 'semi-final', 'final'],
         'category' => ['men', 'women'],
@@ -33,10 +33,17 @@ class ServeCalendarUseCaseTest extends TestCase
         $this->validator = new InputValidator(self::ALLOWED_VALUES);
     }
 
-    public function testNoFiltersReturnsCachedIcs(): void
+    public function testNoFiltersGeneratesFullIcs(): void
     {
+        $events = [['id' => 1, 'name' => 'Test Event', 'rounds' => []]];
+
         $this->repository->expects($this->once())
-            ->method('getIcs')
+            ->method('getEvents')
+            ->willReturn(['events' => $events]);
+
+        $this->generator->expects($this->once())
+            ->method('generateForEvents')
+            ->with($events)
             ->willReturn("BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n");
 
         $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
@@ -106,7 +113,7 @@ class ServeCalendarUseCaseTest extends TestCase
     public function testRepositoryFailureReturns503(): void
     {
         $this->repository->expects($this->once())
-            ->method('getIcs')
+            ->method('getEvents')
             ->willThrowException(new CalendarUnavailableException('Down'));
 
         $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
@@ -121,7 +128,11 @@ class ServeCalendarUseCaseTest extends TestCase
     public function testTrackingIsSetForIcs(): void
     {
         $this->repository->expects($this->once())
-            ->method('getIcs')
+            ->method('getEvents')
+            ->willReturn(['events' => []]);
+
+        $this->generator->expects($this->once())
+            ->method('generateForEvents')
             ->willReturn("BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n");
 
         $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
@@ -130,12 +141,32 @@ class ServeCalendarUseCaseTest extends TestCase
 
         $this->assertNotNull($result->tracking);
         $this->assertSame('ics', $result->tracking->format);
+        $this->assertNull($result->tracking->filterParams); // no filters → null
+    }
+
+    public function testTrackingHasFilterParamsWhenFiltered(): void
+    {
+        $this->repository->expects($this->once())
+            ->method('getEvents')
+            ->willReturn(['events' => []]);
+
+        $this->generator->expects($this->once())
+            ->method('generateForEvents')
+            ->willReturn("BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n");
+
+        $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
+
+        $result = $useCase->execute(['discipline' => 'boulder']);
+
+        $this->assertNotNull($result->tracking);
+        $this->assertNotNull($result->tracking->filterParams);
+        $this->assertSame(['boulder'], $result->tracking->filterParams->disciplines);
     }
 
     public function testTrackingIsNullOn503(): void
     {
         $this->repository->expects($this->once())
-            ->method('getIcs')
+            ->method('getEvents')
             ->willThrowException(new CalendarUnavailableException('Down'));
 
         $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
@@ -148,7 +179,7 @@ class ServeCalendarUseCaseTest extends TestCase
     public function testInvalidDisciplineReturns400(): void
     {
         $this->repository->expects($this->never())
-            ->method('getIcs');
+            ->method('getEvents');
 
         $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
 
@@ -163,7 +194,7 @@ class ServeCalendarUseCaseTest extends TestCase
     public function testInvalidKindReturns400(): void
     {
         $this->repository->expects($this->never())
-            ->method('getIcs');
+            ->method('getEvents');
 
         $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
 
@@ -177,7 +208,7 @@ class ServeCalendarUseCaseTest extends TestCase
     public function testInvalidCategoryReturns400(): void
     {
         $this->repository->expects($this->never())
-            ->method('getIcs');
+            ->method('getEvents');
 
         $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
 
@@ -202,7 +233,11 @@ class ServeCalendarUseCaseTest extends TestCase
     public function testUnknownParameterIsIgnored(): void
     {
         $this->repository->expects($this->once())
-            ->method('getIcs')
+            ->method('getEvents')
+            ->willReturn(['events' => []]);
+
+        $this->generator->expects($this->once())
+            ->method('generateForEvents')
             ->willReturn("BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n");
 
         $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
@@ -232,7 +267,7 @@ class ServeCalendarUseCaseTest extends TestCase
     public function testSpeedRelayIsRejected(): void
     {
         $this->repository->expects($this->never())
-            ->method('getIcs');
+            ->method('getEvents');
 
         $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
 

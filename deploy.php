@@ -28,6 +28,7 @@ task('deploy:update_code', function () {
             'options' => [
                 '--include=public/***',
                 '--include=src/***',
+                '--include=bin/***',
                 '--include=config/***',
                 '--include=vendor/***',
                 '--include=var/***',

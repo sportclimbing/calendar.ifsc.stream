@@ -7,10 +7,8 @@ use Psr\Container\ContainerInterface;
 use Slim\Factory\AppFactory;
 use SportClimbing\IcsGenerator\CalendarFactory;
 use SportClimbing\IcsGenerator\IcsGenerator;
-use SportClimbing\Adapter\CachingCalendarRepository;
-use SportClimbing\Adapter\FileGetContentsHttpClient;
-use SportClimbing\Adapter\GitHubCalendarRepository;
 use SportClimbing\Adapter\GoogleAnalyticsAdapter;
+use SportClimbing\Adapter\LocalCalendarRepository;
 use SportClimbing\Adapter\SportClimbingIcsGenerator;
 use SportClimbing\Application\InputValidator;
 use SportClimbing\Application\ServeCalendarUseCase;
@@ -19,7 +17,6 @@ use SportClimbing\Infrastructure\CalendarController;
 use SportClimbing\Port\AnalyticsClient;
 use SportClimbing\Port\CalendarGenerator;
 use SportClimbing\Port\CalendarRepository;
-use SportClimbing\Port\HttpClient;
 
 require __DIR__ . '/../vendor/autoload.php';
 $settings = require __DIR__ . '/../config/settings.php';
@@ -28,26 +25,12 @@ $containerBuilder = new ContainerBuilder();
 
 $containerBuilder->addDefinitions([
     'cache.dir' => $settings['cache']['dir'],
-    'cache.seconds' => $settings['cache']['seconds'],
-    'calendar.ics_url' => $settings['calendar']['base_url'] . '/' . $settings['calendar']['ics_filename'],
-    'calendar.json_url' => $settings['calendar']['base_url'] . '/' . $settings['calendar']['json_filename'],
+    'cache.file' => $settings['cache']['dir'] . '/calendar.json',
 
     // Ports → Adapters
-    HttpClient::class => fn () => new FileGetContentsHttpClient(),
-
-    CalendarRepository::class => function (ContainerInterface $c) {
-        $http = $c->get(HttpClient::class);
-
-        return new CachingCalendarRepository(
-            new GitHubCalendarRepository(
-                $http,
-                $c->get('calendar.ics_url'),
-                $c->get('calendar.json_url'),
-            ),
-            $c->get('cache.dir'),
-            $c->get('cache.seconds'),
-        );
-    },
+    CalendarRepository::class => fn (ContainerInterface $c) => new LocalCalendarRepository(
+        $c->get('cache.file'),
+    ),
 
     AnalyticsClient::class => fn () => new GoogleAnalyticsAdapter(
         $settings['analytics']['measurement_id'],

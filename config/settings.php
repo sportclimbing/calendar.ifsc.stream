@@ -6,12 +6,10 @@ return [
 
     'cache' => [
         'dir' => dirname(__DIR__) . '/var/cache',
-        'seconds' => 60,
     ],
 
     'calendar' => [
         'base_url' => 'https://github.com/sportclimbing/ifsc-calendar/releases/latest/download',
-        'ics_filename' => 'IFSC-World-Cups-and-World-Championships.ics',
         'json_filename' => 'IFSC-World-Cups-and-World-Championships.json',
         'prod_id' => '-//ifsc/ical//2.0/EN',
         'duration' => 'PT1H',
