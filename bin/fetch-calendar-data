@@ -1,0 +1,75 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+/**
+ * Fetches the IFSC calendar JSON from GitHub and writes it to the local cache.
+ *
+ * Designed to run periodically (e.g., via supervisor loop).
+ * Uses an atomic write (temp file + rename) so concurrent PHP requests
+ * never see a partially written file.
+ *
+ * @license  http://opensource.org/licenses/mit-license.php MIT
+ * @link     https://github.com/nicoSWD
+ * @author   Nicolas Oelgart <nico@ifsc.stream>
+ */
+use SportClimbing\Adapter\FileGetContentsHttpClient;
+use SportClimbing\Adapter\GitHubCalendarRepository;
+use SportClimbing\Port\CalendarUnavailableException;
+use SportClimbing\Port\HttpException;
+
+require __DIR__ . '/../vendor/autoload.php';
+
+$settings = require __DIR__ . '/../config/settings.php';
+
+$cacheDir = $settings['cache']['dir'];
+$jsonUrl = $settings['calendar']['base_url'] . '/' . $settings['calendar']['json_filename'];
+$cacheFile = $cacheDir . '/calendar.json';
+
+$httpClient = new FileGetContentsHttpClient();
+$repository = new GitHubCalendarRepository($httpClient, $jsonUrl);
+
+$startTime = microtime(true);
+
+try {
+    $events = $repository->getEvents();
+    $json = json_encode($events, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+    if ($json === false) {
+        throw new RuntimeException('Failed to JSON-encode calendar data');
+    }
+
+    // Atomic write: temp file first, then rename.
+    // Readers (LocalCalendarRepository) always read the real file — they
+    // either see the old version or the new, never a partial write.
+    $tmpFile = $cacheFile . '.tmp.' . getmypid();
+
+    if (file_put_contents($tmpFile, $json, LOCK_EX) === false) {
+        throw new RuntimeException("Failed to write to {$tmpFile}");
+    }
+
+    if (!rename($tmpFile, $cacheFile)) {
+        @unlink($tmpFile);
+        throw new RuntimeException("Failed to rename {$tmpFile} to {$cacheFile}");
+    }
+
+    $elapsed = round((microtime(true) - $startTime) * 1000);
+    $size = strlen($json);
+
+    fwrite(STDERR, sprintf(
+        "[%s] OK: fetched %d bytes in %dms\n",
+        date('Y-m-d H:i:s'),
+        $size,
+        $elapsed,
+    ));
+} catch (CalendarUnavailableException | HttpException | RuntimeException $e) {
+    $elapsed = round((microtime(true) - $startTime) * 1000);
+
+    fwrite(STDERR, sprintf(
+        "[%s] ERR: %s (after %dms)\n",
+        date('Y-m-d H:i:s'),
+        $e->getMessage(),
+        $elapsed,
+    ));
+
+    exit(1);
+}

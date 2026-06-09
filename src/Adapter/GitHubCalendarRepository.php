@@ -15,14 +15,8 @@ final readonly class GitHubCalendarRepository implements CalendarRepository
 {
     public function __construct(
         private HttpClient $httpClient,
-        private string $icsUrl,
         private string $jsonUrl,
     ) {
-    }
-
-    public function getIcs(): string
-    {
-        return $this->httpClient->get($this->icsUrl);
     }
 
     public function getEvents(): array
