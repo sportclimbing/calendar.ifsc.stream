@@ -7,6 +7,8 @@ use Psr\Container\ContainerInterface;
 use Slim\Factory\AppFactory;
 use SportClimbing\IcsGenerator\CalendarFactory;
 use SportClimbing\IcsGenerator\IcsGenerator;
+use SportClimbing\Adapter\FileGetContentsHttpClient;
+use SportClimbing\Adapter\GitHubCalendarRepository;
 use SportClimbing\Adapter\GoogleAnalyticsAdapter;
 use SportClimbing\Adapter\LocalCalendarRepository;
 use SportClimbing\Adapter\SportClimbingIcsGenerator;
@@ -17,6 +19,7 @@ use SportClimbing\Infrastructure\CalendarController;
 use SportClimbing\Port\AnalyticsClient;
 use SportClimbing\Port\CalendarGenerator;
 use SportClimbing\Port\CalendarRepository;
+use SportClimbing\Port\HttpClient;
 
 require __DIR__ . '/../vendor/autoload.php';
 $settings = require __DIR__ . '/../config/settings.php';
@@ -26,11 +29,19 @@ $containerBuilder = new ContainerBuilder();
 $containerBuilder->addDefinitions([
     'cache.dir' => $settings['cache']['dir'],
     'cache.file' => $settings['cache']['dir'] . '/calendar.json',
+    'calendar.json_url' => $settings['calendar']['base_url'] . '/' . $settings['calendar']['json_filename'],
 
     // Ports → Adapters
-    CalendarRepository::class => fn (ContainerInterface $c) => new LocalCalendarRepository(
-        $c->get('cache.file'),
-    ),
+    HttpClient::class => fn () => new FileGetContentsHttpClient(),
+
+    CalendarRepository::class => function (ContainerInterface $c) {
+        $fallback = new GitHubCalendarRepository(
+            $c->get(HttpClient::class),
+            $c->get('calendar.json_url'),
+        );
+
+        return new LocalCalendarRepository($c->get('cache.file'), $fallback);
+    },
 
     AnalyticsClient::class => fn () => new GoogleAnalyticsAdapter(
         $settings['analytics']['measurement_id'],

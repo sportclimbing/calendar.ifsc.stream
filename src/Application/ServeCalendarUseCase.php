@@ -73,6 +73,15 @@ final readonly class ServeCalendarUseCase
                 ),
                 tracking: null,
             );
+        } catch (\Throwable $e) {
+            return new ServeCalendarResult(
+                new ResponseDto(
+                    body: "Internal error: " . $e->getMessage() . "\n",
+                    headers: ['Content-Type' => 'text/plain; charset=utf-8'],
+                    status: 500,
+                ),
+                tracking: null,
+            );
         }
     }
 }
