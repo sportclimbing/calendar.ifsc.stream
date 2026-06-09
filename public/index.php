@@ -2,11 +2,6 @@
 
 declare(strict_types=1);
 
-error_reporting(-1);
-ini_set('display_errors', 0);
-
-require __DIR__ . '/../vendor/autoload.php';
-
 use DI\ContainerBuilder;
 use Psr\Container\ContainerInterface;
 use Slim\Factory\AppFactory;
@@ -17,6 +12,7 @@ use SportClimbing\Adapter\FileGetContentsHttpClient;
 use SportClimbing\Adapter\GitHubCalendarRepository;
 use SportClimbing\Adapter\GoogleAnalyticsAdapter;
 use SportClimbing\Adapter\SportClimbingIcsGenerator;
+use SportClimbing\Application\InputValidator;
 use SportClimbing\Application\ServeCalendarUseCase;
 use SportClimbing\Application\TrackDownloadUseCase;
 use SportClimbing\Infrastructure\CalendarController;
@@ -25,6 +21,7 @@ use SportClimbing\Port\CalendarGenerator;
 use SportClimbing\Port\CalendarRepository;
 use SportClimbing\Port\HttpClient;
 
+require __DIR__ . '/../vendor/autoload.php';
 $settings = require __DIR__ . '/../config/settings.php';
 
 $containerBuilder = new ContainerBuilder();
@@ -68,10 +65,13 @@ $containerBuilder->addDefinitions([
     ),
 
     // Use cases
-    ServeCalendarUseCase::class => function (ContainerInterface $c) {
+    ServeCalendarUseCase::class => function (ContainerInterface $c) use ($settings) {
+        $validator = new InputValidator($settings['validation']);
+
         return new ServeCalendarUseCase(
             $c->get(CalendarRepository::class),
             $c->get(CalendarGenerator::class),
+            $validator,
         );
     },
 

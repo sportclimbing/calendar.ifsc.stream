@@ -18,6 +18,7 @@ final readonly class ServeCalendarUseCase
     public function __construct(
         private CalendarRepository $calendarRepository,
         private CalendarGenerator $calendarGenerator,
+        private InputValidator $inputValidator,
     ) {
     }
 
@@ -26,6 +27,19 @@ final readonly class ServeCalendarUseCase
      */
     public function execute(array $queryParams): ServeCalendarResult
     {
+        $errors = $this->inputValidator->validate($queryParams);
+
+        if ($errors !== []) {
+            return new ServeCalendarResult(
+                new ResponseDto(
+                    body: implode("\n", $errors) . "\n",
+                    headers: ['Content-Type' => 'text/plain; charset=utf-8'],
+                    status: 400,
+                ),
+                tracking: null,
+            );
+        }
+
         $filterParams = FilterParams::fromQuery($queryParams);
         $hasFilters = !$filterParams->isEmpty();
 

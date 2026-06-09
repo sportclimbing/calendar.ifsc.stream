@@ -8,6 +8,7 @@
 namespace SportClimbing\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
+use SportClimbing\Application\InputValidator;
 use SportClimbing\Application\ServeCalendarUseCase;
 use SportClimbing\Port\CalendarGenerator;
 use SportClimbing\Port\CalendarRepository;
@@ -17,11 +18,19 @@ class ServeCalendarUseCaseTest extends TestCase
 {
     private CalendarRepository $repository;
     private CalendarGenerator $generator;
+    private InputValidator $validator;
+
+    private const ALLOWED_VALUES = [
+        'discipline' => ['boulder', 'lead', 'speed'],
+        'kind' => ['qualification', 'semi-final', 'final'],
+        'category' => ['men', 'women'],
+    ];
 
     protected function setUp(): void
     {
         $this->repository = $this->createMock(CalendarRepository::class);
         $this->generator = $this->createMock(CalendarGenerator::class);
+        $this->validator = new InputValidator(self::ALLOWED_VALUES);
     }
 
     public function testNoFiltersReturnsCachedIcs(): void
@@ -30,7 +39,7 @@ class ServeCalendarUseCaseTest extends TestCase
             ->method('getIcs')
             ->willReturn("BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n");
 
-        $useCase = new ServeCalendarUseCase($this->repository, $this->generator);
+        $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
 
         $result = $useCase->execute([]);
 
@@ -80,7 +89,7 @@ class ServeCalendarUseCaseTest extends TestCase
             ->method('generateForEvents')
             ->willReturn("BEGIN:VCALENDAR\r\nFILTERED\r\nEND:VCALENDAR\r\n");
 
-        $useCase = new ServeCalendarUseCase($this->repository, $this->generator);
+        $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
 
         $result = $useCase->execute([
             'format' => 'ics',
@@ -100,7 +109,7 @@ class ServeCalendarUseCaseTest extends TestCase
             ->method('getIcs')
             ->willThrowException(new CalendarUnavailableException('Down'));
 
-        $useCase = new ServeCalendarUseCase($this->repository, $this->generator);
+        $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
 
         $result = $useCase->execute([]);
 
@@ -115,7 +124,7 @@ class ServeCalendarUseCaseTest extends TestCase
             ->method('getIcs')
             ->willReturn("BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n");
 
-        $useCase = new ServeCalendarUseCase($this->repository, $this->generator);
+        $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
 
         $result = $useCase->execute([]);
 
@@ -129,10 +138,107 @@ class ServeCalendarUseCaseTest extends TestCase
             ->method('getIcs')
             ->willThrowException(new CalendarUnavailableException('Down'));
 
-        $useCase = new ServeCalendarUseCase($this->repository, $this->generator);
+        $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
 
         $result = $useCase->execute([]);
 
         $this->assertNull($result->tracking);
+    }
+
+    public function testInvalidDisciplineReturns400(): void
+    {
+        $this->repository->expects($this->never())
+            ->method('getIcs');
+
+        $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
+
+        $result = $useCase->execute(['discipline' => 'invalid']);
+
+        $this->assertSame(400, $result->response->status);
+        $this->assertStringContainsString('Invalid value "invalid"', $result->response->body);
+        $this->assertStringContainsString('discipline', $result->response->body);
+        $this->assertNull($result->tracking);
+    }
+
+    public function testInvalidKindReturns400(): void
+    {
+        $this->repository->expects($this->never())
+            ->method('getIcs');
+
+        $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
+
+        $result = $useCase->execute(['kind' => 'quarter-final']);
+
+        $this->assertSame(400, $result->response->status);
+        $this->assertStringContainsString('Invalid value "quarter-final"', $result->response->body);
+        $this->assertStringContainsString('kind', $result->response->body);
+    }
+
+    public function testInvalidCategoryReturns400(): void
+    {
+        $this->repository->expects($this->never())
+            ->method('getIcs');
+
+        $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
+
+        $result = $useCase->execute(['category' => 'mixed']);
+
+        $this->assertSame(400, $result->response->status);
+        $this->assertStringContainsString('Invalid value "mixed"', $result->response->body);
+    }
+
+    public function testMixedValidAndInvalidReturns400(): void
+    {
+        $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
+
+        $result = $useCase->execute([
+            'discipline' => 'boulder,invalid',
+        ]);
+
+        $this->assertSame(400, $result->response->status);
+        $this->assertStringContainsString('Invalid value "invalid"', $result->response->body);
+    }
+
+    public function testUnknownParameterIsIgnored(): void
+    {
+        $this->repository->expects($this->once())
+            ->method('getIcs')
+            ->willReturn("BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n");
+
+        $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
+
+        $result = $useCase->execute(['unknown' => 'value']);
+
+        $this->assertSame(200, $result->response->status);
+    }
+
+    public function testValidDisciplinePasses(): void
+    {
+        $this->repository->expects($this->once())
+            ->method('getEvents')
+            ->willReturn(['events' => []]);
+
+        $this->generator->expects($this->once())
+            ->method('generateForEvents')
+            ->willReturn("BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n");
+
+        $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
+
+        $result = $useCase->execute(['discipline' => 'boulder,speed']);
+
+        $this->assertSame(200, $result->response->status);
+    }
+
+    public function testSpeedRelayIsRejected(): void
+    {
+        $this->repository->expects($this->never())
+            ->method('getIcs');
+
+        $useCase = new ServeCalendarUseCase($this->repository, $this->generator, $this->validator);
+
+        $result = $useCase->execute(['discipline' => 'speed_relay']);
+
+        $this->assertSame(400, $result->response->status);
+        $this->assertStringContainsString('Invalid value "speed_relay"', $result->response->body);
     }
 }

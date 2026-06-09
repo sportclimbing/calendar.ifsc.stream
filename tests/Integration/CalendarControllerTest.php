@@ -11,6 +11,7 @@ use DI\ContainerBuilder;
 use PHPUnit\Framework\TestCase;
 use Slim\App;
 use Slim\Factory\AppFactory;
+use SportClimbing\Application\InputValidator;
 use SportClimbing\Application\ServeCalendarUseCase;
 use SportClimbing\Application\TrackDownloadUseCase;
 use SportClimbing\Infrastructure\CalendarController;
@@ -21,6 +22,13 @@ use SportClimbing\Port\CalendarRepository;
 class CalendarControllerTest extends TestCase
 {
     private App $app;
+    private InputValidator $validator;
+
+    private const ALLOWED_VALUES = [
+        'discipline' => ['boulder', 'lead', 'speed'],
+        'kind' => ['qualification', 'semi-final', 'final'],
+        'category' => ['men', 'women'],
+    ];
 
     protected function setUp(): void
     {
@@ -31,14 +39,16 @@ class CalendarControllerTest extends TestCase
         $generator = $this->createMock(CalendarGenerator::class);
         $analytics = $this->createMock(AnalyticsClient::class);
 
+        $this->validator = new InputValidator(self::ALLOWED_VALUES);
+
         $containerBuilder->addDefinitions([
             CalendarRepository::class => $repository,
             CalendarGenerator::class => $generator,
             AnalyticsClient::class => $analytics,
-            ServeCalendarUseCase::class => fn () => new ServeCalendarUseCase($repository, $generator),
+            ServeCalendarUseCase::class => fn () => new ServeCalendarUseCase($repository, $generator, $this->validator),
             TrackDownloadUseCase::class => fn () => new TrackDownloadUseCase($analytics),
             CalendarController::class => fn () => new CalendarController(
-                new ServeCalendarUseCase($repository, $generator),
+                new ServeCalendarUseCase($repository, $generator, $this->validator),
                 new TrackDownloadUseCase($analytics),
             ),
         ]);
@@ -68,7 +78,7 @@ class CalendarControllerTest extends TestCase
         $analytics = $this->createMock(AnalyticsClient::class);
 
         $controller = new CalendarController(
-            new ServeCalendarUseCase($repository, $generator),
+            new ServeCalendarUseCase($repository, $generator, $this->validator),
             new TrackDownloadUseCase($analytics),
         );
 
@@ -91,7 +101,7 @@ class CalendarControllerTest extends TestCase
         $analytics->method('trackDownload'); // noop
 
         $controller = new CalendarController(
-            new ServeCalendarUseCase($repository, $generator),
+            new ServeCalendarUseCase($repository, $generator, $this->validator),
             new TrackDownloadUseCase($analytics),
         );
 
