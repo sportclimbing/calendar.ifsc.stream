@@ -27,10 +27,11 @@ class CalendarControllerTest extends TestCase
     private App $app;
     private InputValidator $validator;
 
-    private const ALLOWED_VALUES = [
+    private const array ALLOWED_VALUES = [
         'discipline' => ['boulder', 'lead', 'speed'],
         'kind' => ['qualification', 'semi-final', 'final'],
         'category' => ['men', 'women'],
+        'series' => ['world', 'para'],
     ];
 
     protected function setUp(): void
