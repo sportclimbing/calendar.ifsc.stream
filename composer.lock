@@ -968,16 +968,16 @@
         },
         {
             "name": "sportclimbing/ifsc-ics-generator",
-            "version": "1.0",
+            "version": "1.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sportclimbing/ifsc-ics-generator.git",
-                "reference": "9f5d9919eda188f4b945a731cde60d97e284e7c4"
+                "reference": "8b6cd5f4a33b4e8cefb7beb1a15f9c49777914b4"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sportclimbing/ifsc-ics-generator/zipball/9f5d9919eda188f4b945a731cde60d97e284e7c4",
-                "reference": "9f5d9919eda188f4b945a731cde60d97e284e7c4",
+                "url": "https://api.github.com/repos/sportclimbing/ifsc-ics-generator/zipball/8b6cd5f4a33b4e8cefb7beb1a15f9c49777914b4",
+                "reference": "8b6cd5f4a33b4e8cefb7beb1a15f9c49777914b4",
                 "shasum": ""
             },
             "require": {
@@ -1007,9 +1007,9 @@
             "description": "Shared JSON-to-ICS generator for IFSC calendar.",
             "support": {
                 "issues": "https://github.com/sportclimbing/ifsc-ics-generator/issues",
-                "source": "https://github.com/sportclimbing/ifsc-ics-generator/tree/1.0"
+                "source": "https://github.com/sportclimbing/ifsc-ics-generator/tree/1.1"
             },
-            "time": "2026-06-08T20:18:51+00:00"
+            "time": "2026-06-11T11:39:42+00:00"
         },
         {
             "name": "symfony/deprecation-contracts",
