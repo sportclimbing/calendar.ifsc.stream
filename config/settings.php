@@ -20,6 +20,7 @@ return [
         'discipline' => ['boulder', 'lead', 'speed'],
         'kind' => ['qualification', 'semi-final', 'final'],
         'category' => ['men', 'women'],
+        'series' => ['world', 'para'],
     ],
 
     'analytics' => [
