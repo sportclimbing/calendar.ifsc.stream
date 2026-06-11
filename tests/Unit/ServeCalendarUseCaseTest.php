@@ -24,6 +24,7 @@ class ServeCalendarUseCaseTest extends TestCase
         'discipline' => ['boulder', 'lead', 'speed'],
         'kind' => ['qualification', 'semi-final', 'final'],
         'category' => ['men', 'women'],
+        'series' => ['world', 'para'],
     ];
 
     protected function setUp(): void

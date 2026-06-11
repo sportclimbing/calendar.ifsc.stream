@@ -14,10 +14,11 @@ class InputValidatorTest extends TestCase
 {
     private InputValidator $validator;
 
-    private const ALLOWED = [
+    private const array ALLOWED = [
         'discipline' => ['boulder', 'lead', 'speed'],
         'kind' => ['qualification', 'semi-final', 'final'],
         'category' => ['men', 'women'],
+        'series' => ['world', 'para'],
     ];
 
     protected function setUp(): void
