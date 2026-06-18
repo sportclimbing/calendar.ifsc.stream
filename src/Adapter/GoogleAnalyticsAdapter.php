@@ -47,7 +47,7 @@ final readonly class GoogleAnalyticsAdapter implements AnalyticsClient
         $payload = json_encode([
             'client_id' => $clientId,
             'events' => [[
-                'name' => 'calendar_download',
+                'name' => 'calendar_download_v2',
                 'params' => $params,
             ]],
         ]);
