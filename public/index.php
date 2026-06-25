@@ -55,7 +55,6 @@ $containerBuilder->addDefinitions([
             $settings['calendar']['prod_id'],
             $settings['calendar']['duration'],
             $settings['calendar']['cal_name'],
-            $settings['calendar']['show_config_notice'],
         ),
     ),
 

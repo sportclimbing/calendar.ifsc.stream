@@ -14,7 +14,6 @@ return [
         'prod_id' => '-//ifsc/ical//2.0/EN',
         'duration' => 'PT1H',
         'cal_name' => 'IFSC',
-        'show_config_notice' => true,
     ],
 
     'validation' => [
